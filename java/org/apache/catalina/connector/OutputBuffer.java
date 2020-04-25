@@ -438,6 +438,7 @@ public class OutputBuffer extends Writer
         // if called from within flush(), then immediately flush
         // remaining bytes
         if (doFlush) {
+            //写满了，刷新charBuffer，把char Buffer写到byte buffer
             bb.flushBuffer();
         }
 

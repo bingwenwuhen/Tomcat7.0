@@ -1155,11 +1155,17 @@ public class Request implements HttpServletRequest {
      * return <code>null</code>.  If there is more than one value defined,
      * return only the first one.
      *
-     * @param name Name of the desired request parameter
+     * @param name Name of the desired request parameter。
+     *
+     * 在这一步进行具体的body解析，即filter的使用
+     * ChunkInputFilter      对应解析chunk body
+     * IdentityInputFilter   对应解析普通body
+     * VoidInputFilter       没有body体时用这个解析
+     *
      */
     @Override
     public String getParameter(String name) {
-
+        //parameters默认是false，解析完后会设置为true，防止重复读
         if (!parametersParsed) {
             parseParameters();
         }
@@ -3282,9 +3288,10 @@ public class Request implements HttpServletRequest {
                     (org.apache.coyote.Constants.DEFAULT_CHARACTER_ENCODING);
                 }
             }
-
+            //解析url后面的参数
             parameters.handleQueryParameters();
 
+            //需要判断是否执行过getInputStream()，如果通过stream流的形式读了，则在后面getParameter是读不到body里的参数的，只能获取url后面的参数
             if (usingInputStream || usingReader) {
                 success = true;
                 return;
@@ -3317,10 +3324,13 @@ public class Request implements HttpServletRequest {
                 return;
             }
 
+            //获取content-length,如果是chunked，则返回-1
             int len = getContentLength();
 
+            //len大于0则是普通的body
             if (len > 0) {
                 int maxPostSize = connector.getMaxPostSize();
+                //检查body的大小是否超过了maxPostSize的大小，maxPostSize默认是2m
                 if ((maxPostSize >= 0) && (len > maxPostSize)) {
                     Context context = getContext();
                     if (context != null && context.getLogger().isDebugEnabled()) {
@@ -3331,7 +3341,10 @@ public class Request implements HttpServletRequest {
                     parameters.setParseFailedReason(FailReason.POST_TOO_LARGE);
                     return;
                 }
+                //body 字节部分
                 byte[] formData = null;
+                //如果body的大小小于CACHED_POST_LEN;默认8192即8K，tomcat是用缓存的字节数组，不是重新创建一个新建一个意味着向os申请
+                //一块连续的内存，如果不重用，则会出现频繁的向os申请内存
                 if (len < CACHED_POST_LEN) {
                     if (postData == null) {
                         postData = new byte[CACHED_POST_LEN];
@@ -3341,6 +3354,8 @@ public class Request implements HttpServletRequest {
                     formData = new byte[len];
                 }
                 try {
+                    //这里是从inputbuffer里读数据，我们分析了半天都没有看到前面提到的inputFilter到底在哪里发挥作用，
+                    //接下来他就要登场了，这里是普通post的非chunk，则用的是IdentityInputFilter
                     if (readPostBody(formData, len) != len) {
                         parameters.setParseFailedReason(FailReason.REQUEST_BODY_INCOMPLETE);
                         return;
@@ -3355,6 +3370,7 @@ public class Request implements HttpServletRequest {
                     parameters.setParseFailedReason(FailReason.CLIENT_DISCONNECT);
                     return;
                 }
+                //这里是读到具体内容后，解析出参数出来，这个都是一样的，无论是普通的post请求还是chunk请求
                 parameters.processParameters(formData, 0, len);
             } else if ("chunked".equalsIgnoreCase(
                     coyoteRequest.getHeader("transfer-encoding"))) {
@@ -3408,6 +3424,7 @@ public class Request implements HttpServletRequest {
 
         int offset = 0;
         do {
+            //这里最终是Http11InputBuffer根据activeFilter去读body
             int inputLen = getStream().read(body, offset, len - offset);
             if (inputLen <= 0) {
                 return offset;

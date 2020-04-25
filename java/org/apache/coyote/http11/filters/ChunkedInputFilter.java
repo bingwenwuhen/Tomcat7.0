@@ -38,6 +38,7 @@ import org.apache.tomcat.util.res.StringManager;
  *
  * @author Remy Maucherat
  * @author Filip Hanik
+ * 如果获取的数据是分块形式
  */
 public class ChunkedInputFilter implements InputFilter {
 
@@ -180,6 +181,7 @@ public class ChunkedInputFilter implements InputFilter {
             return -1;
         }
 
+        //chunk会标记一个数据块的内容区域
         checkError();
 
         if(needCRLFParse) {
@@ -380,16 +382,19 @@ public class ChunkedInputFilter implements InputFilter {
             if (!eol) {
                 pos++;
             }
+            //遇到回车换行则退出循环，此时pos指向chunk头结束的位置，result表示这个chunk的内容长度
         }
 
         if (readDigit == 0 || result < 0) {
             return false;
         }
 
+        //如果内容长度为0，表示是最后一个chunk
         if (result == 0) {
             endChunk = true;
         }
 
+        //需要处理remaining这么多数据
         remaining = result;
         return true;
     }

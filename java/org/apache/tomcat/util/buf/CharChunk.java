@@ -342,6 +342,7 @@ public final class CharChunk extends AbstractChunk implements CharSequence {
             sOff += d;
             end += d;
             if (end >= limit) {
+                //写满了，刷新charChunk，把char Chunk写入到byte chunk
                 flushBuffer();
             }
         }

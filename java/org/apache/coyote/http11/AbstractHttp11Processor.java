@@ -846,6 +846,7 @@ public abstract class AbstractHttp11Processor<S> extends AbstractProcessor<S> {
             // Validate and write response headers
             try {
                 prepareResponse();
+                //把headerBuffer的数据copy到socket的writerBuffer，最终flush的时候发送到网络上
                 getOutputBuffer().commit();
             } catch (IOException e) {
                 setErrorState(ErrorState.CLOSE_NOW, e);
@@ -1036,7 +1037,8 @@ public abstract class AbstractHttp11Processor<S> extends AbstractProcessor<S> {
      * @throws IOException error during an I/O operation
      */
     @Override
-    public SocketState process(SocketWrapper<S> socketWrapper)
+    public SocketState
+    process(SocketWrapper<S> socketWrapper)
         throws IOException {
 //        System.out.println("process");
         RequestInfo rp = request.getRequestProcessor();
@@ -1091,6 +1093,7 @@ public abstract class AbstractHttp11Processor<S> extends AbstractProcessor<S> {
                 } else {
                     keptAlive = true;
                     // Set this every time in case limit has been changed via JMX
+                    //解析header部分前，设置了header个数的限制,一般是100个
                     request.getMimeHeaders().setLimit(endpoint.getMaxHeaderCount());
                     request.getCookies().setLimit(getMaxCookieCount());
                     // Currently only NIO will ever return false here
@@ -1221,6 +1224,7 @@ public abstract class AbstractHttp11Processor<S> extends AbstractProcessor<S> {
                     // to be closed occurred.
                     checkExpectationAndResponseStatus();
                 }
+                //结束请求后，处理尾部工作
                 endRequest();
             }
 
@@ -1695,6 +1699,7 @@ public abstract class AbstractHttp11Processor<S> extends AbstractProcessor<S> {
         long contentLength = response.getContentLengthLong();
         boolean connectionClosePresent = false;
         if (contentLength != -1) {
+            //如果指定了content-length,指定写数据的filter为IDENTITY_FILTER
             headers.setValue("Content-Length").setLong(contentLength);
             getOutputBuffer().addActiveFilter
                 (outputFilters[Constants.IDENTITY_FILTER]);
@@ -1704,6 +1709,7 @@ public abstract class AbstractHttp11Processor<S> extends AbstractProcessor<S> {
             // HTTP 1.1 then we chunk unless we have a Connection: close header
             connectionClosePresent = isConnectionClose(headers);
             if (entityBody && http11 && !connectionClosePresent) {
+                //如果是1.1，并且没有主动close，则用chunk格式发送body，对应的filter为chunk filter
                 getOutputBuffer().addActiveFilter
                     (outputFilters[Constants.CHUNKED_FILTER]);
                 contentDelimitation = true;
@@ -1715,6 +1721,7 @@ public abstract class AbstractHttp11Processor<S> extends AbstractProcessor<S> {
         }
 
         if (useCompression) {
+            //如果需要压缩，则增加压缩的output filter
             getOutputBuffer().addActiveFilter(outputFilters[Constants.GZIP_FILTER]);
             headers.setValue("Content-Encoding").setString("gzip");
         }
@@ -1756,6 +1763,7 @@ public abstract class AbstractHttp11Processor<S> extends AbstractProcessor<S> {
         }
 
         // Build the response header
+        //生成响应行的内容
         getOutputBuffer().sendStatus();
 
         // Add server header
@@ -1767,10 +1775,12 @@ public abstract class AbstractHttp11Processor<S> extends AbstractProcessor<S> {
             getOutputBuffer().write(Constants.SERVER_BYTES);
         }
 
+        //生成响应头内容
         int size = headers.size();
         for (int i = 0; i < size; i++) {
             getOutputBuffer().sendHeader(headers.getName(i), headers.getValue(i));
         }
+        //生成响应头的结束标志: 换行和回车符
         getOutputBuffer().endHeaders();
 
     }

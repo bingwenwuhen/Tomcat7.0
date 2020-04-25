@@ -178,6 +178,7 @@ public class Http11Processor extends AbstractHttp11Processor<Socket> {
             }
             // 设置socket的超时时间，然后开始读数据
             socketWrapper.getSocket().setSoTimeout(firstReadTimeout);
+            //重点，操作系统读取数据
             if (!inputBuffer.fill()) {      // 会从inputStream中获取数据,会阻塞
                 throw new EOFException(sm.getString("iib.eof.error"));
             }

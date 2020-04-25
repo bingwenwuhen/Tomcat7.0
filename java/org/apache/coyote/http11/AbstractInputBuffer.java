@@ -256,8 +256,10 @@ public abstract class AbstractInputBuffer<S> implements InputBuffer{
      */
     public void endRequest() throws IOException {
 
+        //多余的数据
         if (swallowInput && (lastActiveFilter != -1)) {
             int extraBytes = (int) activeFilters[lastActiveFilter].end();
+            //把pos向前移动,修复之前的remaining为负数的情况
             pos = pos - extraBytes;
         }
     }

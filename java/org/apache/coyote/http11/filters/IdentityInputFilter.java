@@ -181,24 +181,31 @@ public class IdentityInputFilter implements InputFilter {
         long swallowed = 0;
 
         // Consume extra bytes.
+        //如果此时发现还有剩余的数据
         while (remaining > 0) {
-
+            //从操作系统读取数据
             int nread = buffer.doRead(endChunk, null);
             if (nread > 0 ) {
+                //如果读到了数据
                 swallowed += nread;
+                //更新剩余数据
                 remaining = remaining - nread;
+                //如果在遍历剩余数据时，读到的书超过了maxSwallowSize，则会抛出异常，后续逻辑就会把socket关掉
                 if (maxSwallowSizeExceeded && swallowed > maxSwallowSize) {
                     // Note: We do not fail early so the client has a chance to
                     // read the response before the connection is closed. See:
                     // https://httpd.apache.org/docs/2.0/misc/fin_wait_2.html#appendix
+                    //我们不会提前失败，因此客户端可以去读取响应在连接关闭之前
                     throw new IOException(sm.getString("inputFilter.maxSwallow"));
                 }
             } else { // errors are handled higher up.
+                //如果本来认为还有剩余数据，但是真正去读的时候没有数据了，nread等于-1，索引剩余数据为0
                 remaining = 0;
             }
         }
 
         // If too many bytes were read, return the amount.
+        //遇到的真实数据超过了剩余数据，则会remaining为负数
         return -remaining;
 
     }

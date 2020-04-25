@@ -1797,7 +1797,7 @@ public class HostConfig
             host.setDeployOnStartup(false);
             host.setAutoDeploy(false);
         }
-
+        //该属性默认为true
         if (host.getDeployOnStartup())
             deployApps();
 

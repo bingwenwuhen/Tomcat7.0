@@ -277,7 +277,7 @@ public class InternalInputBuffer extends AbstractInputBuffer<Socket> {
             throw new IllegalStateException(
                     sm.getString("iib.parseheaders.ise.error"));
         }
-
+        //循环读取所有的header头
         while (parseHeader()) {
             // Loop until we run out of headers
         }
@@ -347,6 +347,7 @@ public class InternalInputBuffer extends AbstractInputBuffer<Socket> {
 
             if (buf[pos] == Constants.COLON) {
                 colon = true;
+                //header name读完了，创建一个MimeHeaderField标记该name的在buffer里的offset
                 headerValue = headers.addValue(buf, start, pos - start);
             } else if (!HttpParser.isToken(buf[pos])) {
                 // Non-token characters are illegal in header names
@@ -519,6 +520,12 @@ public class InternalInputBuffer extends AbstractInputBuffer<Socket> {
         return fill(true);
     }
 
+    /**
+     * 进操作系统读取数据时
+     * @param block
+     * @return
+     * @throws IOException
+     */
     @Override
     protected boolean fill(boolean block) throws IOException {
 
@@ -530,14 +537,18 @@ public class InternalInputBuffer extends AbstractInputBuffer<Socket> {
                 throw new IllegalArgumentException
                     (sm.getString("iib.requestheadertoolarge.error"));
             }
-
+            // 从inputStream中读取数据，len表示要读取的数据长度，pos表示把从inputstream读到的数据放在buf的pos位置
+            //nRead表示真实读取到的数据
             nRead = inputStream.read(buf, pos, buf.length - lastValid);
             if (nRead > 0) {
+                //移动lastValid
                 lastValid = pos + nRead;
             }
 
         } else {
-
+            //当读取请求体数据时
+            //buf.length - end表示还能存放多少请求体数据，如果小于4500，那么就新生成一个byte数组，这个新的数组专门用来
+            //盛放请求体
             if (buf.length - end < 4500) {
                 // In this case, the request header was really large, so we allocate a
                 // brand new one; the old one will get GCed when subsequent requests
@@ -547,6 +558,7 @@ public class InternalInputBuffer extends AbstractInputBuffer<Socket> {
             }
             pos = end;
             lastValid = pos;
+            //如果buf中没有数据，会从请求头后面直接覆盖数据
             nRead = inputStream.read(buf, pos, buf.length - lastValid);
             if (nRead > 0) {
                 lastValid = pos + nRead;
